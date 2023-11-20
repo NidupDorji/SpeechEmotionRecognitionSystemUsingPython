@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Speech Emotion Recognition</title>
+</head>
+<body>
+    <h1>Speech Emotion Recognition</h1>
+
+    <div>
+        <button id="recordButton">Record</button>
+        <button id="stopButton" disabled>Stop</button>
+    </div>
+
+    <div>
+        <audio id="audioPlayback" controls></audio>
+    </div>
+
+    <div>
+        <p id="emotionResult"></p>
+    </div>
+<script>
+    const recordButton = document.getElementById("recordButton");
+    const stopButton = document.getElementById("stopButton");
+    const audioPlayback = document.getElementById("audioPlayback");
+    const emotionResult = document.getElementById("emotionResult");
+
+    let mediaRecorder;
+    let audioChunks = [];
+
+    recordButton.addEventListener("click", async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'wav' });
+                audioPlayback.src = URL.createObjectURL(audioBlob);
+
+                // Send the recorded audio to the server for emotion recognition
+                const formData = new FormData();
+                formData.append("audio", audioBlob);
+
+                fetch("/predict_emotion", {
+                    method: "POST",
+                    body: formData,
+                })
+                .then(response => response.json())
+                .then(data => {
+                    emotionResult.innerText = "Predicted Emotion: " + data.Emotion;  // Note the capitalization "Emotion"
+                });
+
+                audioChunks = [];
+            };
+
+            mediaRecorder.start();
+            recordButton.disabled = true;
+            stopButton.disabled = false;
+        } catch (error) {
+            console.error("Error accessing the microphone: " + error);
+        }
+    });
+
+    stopButton.addEventListener("click", () => {
+        mediaRecorder.stop();
+        recordButton.disabled = false;
+        stopButton.disabled = true;
+    });
+</script>
+
+   
+</body>
+</html>
